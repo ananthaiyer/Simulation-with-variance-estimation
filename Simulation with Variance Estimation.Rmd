@@ -1,0 +1,450 @@
+---
+title: "Simulation with Variance Estimation"
+date: "16-10-2024"
+output: pdf_document
+---
+
+# Algorithm Introduction and Comparison
+
+Task 1: Comparing the 4 algorithms against R's 'var' function.
+
+The subsection below contains the following code:       
+        - Algorithm 1 (variance calculation in R)          
+        - Algorithm 2 (variance calculation in Excel)           
+        - Algorithm 3 (Variance calculation- shifted)       
+        - Algorithm 4 (Variance calculation- Online)        
+        - Wrapper function        
+
+The outputs below are generated from a dataset 'x'.         
+Algorithms' approach reference -> class notes
+
+```{r}
+set.seed(1234)
+x = rnorm(100)
+x1 <- rnorm(100)
+x2 <- rnorm(100, mean = 1000000)
+```
+
+
+
+```{r}
+## Algorithm 1 - Precice
+
+Algo1 <- function(x){
+  n <- length(x)
+  mean_x <- sum(x)/n
+  difference <- sum((x-mean_x)^2)
+  variance1 <- difference/(n-1)
+  return(variance1)
+}
+
+print(Algo1(x))
+
+```
+
+```{r}
+## Algorithm 2 - Excel
+
+Algo2 <- function(x){
+  n <- length(x)
+  p1 = sum(x^2)
+  p2 = (1/n)*p1
+  variance2 = (p1-p2)/(n-1)
+  return(variance2)
+}
+
+
+print(Algo2(x))
+
+```
+
+```{r}
+## Algorithm 3 - Shifted
+
+Algo3 <- function(x, c){
+  c <-1
+  n <-length(x)
+  p1 <- sum((x-c)^2)
+  p2 <- (sum(x-c))^2/n
+  variance3 <- (p1 - p2)/(n-1)
+  return(variance3)
+}
+
+print(Algo3(x, 1))
+
+```
+
+```{r}
+## Algorithm 4 - Online
+
+Algo4 <- function(x) { 
+	n <- length(x)
+	if (n < 2) {
+		stop("N is less than 2")
+	}
+	mean0 <- (x[1] + x[2]) / 2
+	var0 <- (x[2] - mean0)^2 + (x[1] - mean0)^2
+	
+	online <- function(mean0, var0, x_new, c) {
+		func_mean <- mean0 + (x_new - mean0) / c
+		func_var <- (((c - 2)/(c-1)) * var0) + (((x_new - mean0) * (x_new - func_mean))/n)
+		return(func_var)
+	}
+	for (i in 3:n) {
+		value <- online(mean0, var0, x[i], i)
+	}
+	return(value)
+}
+
+
+Algo4(x)
+
+```
+
+
+
+```{r}
+#Wrapper function contains all the algorithms above and returns a list of the outputs.
+
+wrapper <- function(x) {
+  a1 = Algo1(x)
+  a2 = Algo2(x)
+  a3 = Algo3(x, 1)
+  a4 = Algo4(x)
+  return(list(a1 = a1, a2 = a2, a3 = a3, a4 = a4))
+  
+}
+
+print(wrapper(x))
+```
+
+Observation: The online algorithm has a much smaller variance when compared to the others. The shift and precise algorithm have very similar outputs.
+
+
+Task 2: Compare the computational performance of the 4 algorithms
+
+
+The subsection below contains the following code:           
+          - Testing Equality, Identical, and All.Equal                
+          - Using Microbenchmark to compare 5 different functions             
+          - Visualizing runtimes using boxplots               
+
+```{r}
+## Comparison function
+ 
+Comparison1 <- function(y){
+  set.seed(1234)
+  
+  # Assigning test dataset
+  
+
+  
+  x1_r <- var(x1)
+  x2_r <- var(x2)
+  
+  x1_var <-wrapper(x1)
+  x2_var <- wrapper(x2)
+  
+  ## Equality
+  ## The equality function returns TRUE if all the values are equal, otherwise returns FALSE. 
+  
+  e1 <- x1_var$a1 == x1_r | x2_var$a1 == x2_r
+  e2 <- x1_var$a2 == x1_r | x2_var$a2 == x2_r
+  e3 <- x1_var$a3 == x1_r | x2_var$a3 == x2_r
+  e4 <- x1_var$a4 == x1_r | x2_var$a4 == x2_r
+  e <- e1 | e2 | e3 | e4
+  
+  ## Identical
+  ## Identical returns TRUE is the two object are identical to each other, otherwise FALSE.
+  
+  i1 <- identical(x1_var$a1, x1_r) | identical(x2_var$a1, x2_r)
+  i2 <- identical(x1_var$a2, x1_r) | identical(x2_var$a2, x2_r)
+  i3 <- identical(x1_var$a3, x1_r) | identical(x2_var$a3, x2_r)
+  i4 <- identical(x1_var$a4, x1_r) | identical(x2_var$a4, x2_r)
+  p <- any(c(i1, i2, i3, i4))
+  
+  ## all.equal
+  ## All.equal returns TRUE if they are nearly equal to each other, describing the difference if they aren't.
+  
+  x1list <- c(x1_r, x1_r, x1_r, x1_r)
+  x2list <- c(x2_r, x2_r, x2_r, x2_r)
+  
+  for (i in 1:4){
+    x1list <- c(x1list, x1_r)
+    x2list <- c(x2list, x2_r)
+  }
+  
+
+
+  ap1 <- all.equal(x1_var, x1list)
+  ap2 <- all.equal(x2_var, x2list)
+  
+
+  cat("Equality :", e, "\n")
+  cat("Identical:", p, "\n")
+  cat("All.Equal: \n")
+  print(ap1)
+  print(ap2)
+
+  
+}
+
+Comparison1(1)
+```
+
+Observation: It shows that the two items are not Equal nor Identical to each other. The all.equal function returned the mean relative difference of the rest of the values.
+
+Microbenchmark and Box plot on dataset x1
+
+```{r}
+
+library(microbenchmark)
+library(ggplot2)
+
+## Checking runtime on x1
+
+runtimes <- microbenchmark(
+  r_var = var(x1),
+  precise = wrapper(x1)$a1,
+  excel = wrapper(x1)$a2,
+  shift = wrapper(x1)$a3,
+  online = wrapper(x1)$a4,
+  times = 100
+)
+
+print(runtimes)
+
+## Checking accuracy
+
+tests <- list(list(vals = x1, real = var(x1)))
+
+difference <- sapply(tests, function(test){
+  vals <- test$vals
+  real <- test$real
+  variance <-wrapper(vals)$a1
+  diff1 <- abs(variance - real)
+  return(diff1)
+  
+  
+})
+
+cat("Mean runtime:\t", mean(runtimes$time), "\n")
+
+
+ggplot(data = as.data.frame(runtimes), aes(x = expr, y = time)) +
+  geom_boxplot(aes(fill = expr)) +  
+  scale_y_log10(labels = scales::comma) +  
+  ggtitle("Runtimes") +  
+  xlab("Algorithm") +  
+  ylab("log(runtime) in ms") + 
+  theme_minimal() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    plot.title = element_text(hjust = 0.5) 
+  )
+
+
+
+```
+
+Observation: R_var has a much lesser runtime than the other algorithms. 
+
+
+# Scale Inverse Property
+
+Task 3: Testing the Scale Inverse Property on different values.
+
+Definition: The scale inverse property is that the variance of a dataset does not change when there is a slight shift in the data. This means that, even when adding or subtracting a constant from a datasetm the variance of the dataset would not change.
+
+The following subsections contain the following code:
+          - Testing scale inverse property on x1 and x2
+          - Benchmark and plotting the results
+
+```{r}
+
+
+# Assigning a random shift value to x1 and x2
+
+shift_value_x1 <- runif(1, -100, 100)
+shift_value_x2 <- runif(1, -100, 100)
+
+# Applying shift
+x1_shifted <- x1 + shift_value_x1
+x2_shifted <- x2 + shift_value_x2
+
+
+results <- data.frame(Method = character(), Dataset = character(), Variance = numeric(), stringsAsFactors = FALSE)
+
+# variances for original and shifted values
+
+for (name in c("Precise", "Excel", "Shift", "Online")) {
+  if (name == "Precise") {
+    var_x1 <- Algo1(x1)
+    var_x2 <- Algo1(x2)
+    var_x1_shifted <- Algo1(x1_shifted)
+    var_x2_shifted <- Algo1(x2_shifted)
+  } else if (name == "Excel") {
+    var_x1 <- Algo2(x1)
+    var_x2 <- Algo2(x2)
+    var_x1_shifted <- Algo2(x1_shifted)
+    var_x2_shifted <- Algo2(x2_shifted)
+  } else if (name == "Shift") {
+    var_x1 <- Algo3(x1, c = 0)  
+    var_x2 <- Algo3(x2, c = 0)  
+    var_x1_shifted <- Algo3(x1_shifted, c = shift_value_x1)
+    var_x2_shifted <- Algo3(x2_shifted, c = shift_value_x2)
+  } else if (name == "Online") {
+    var_x1 <- Algo4(x1)
+    var_x2 <- Algo4(x2)
+    var_x1_shifted <- Algo4(x1_shifted)
+    var_x2_shifted <- Algo4(x2_shifted)
+  }
+  
+ # Adding results
+  
+  results <- rbind(results, data.frame(Method = name, Dataset = "x1 (Original)", Variance = var_x1))
+  results <- rbind(results, data.frame(Method = name, Dataset = "x1 (Shifted)", Variance = var_x1_shifted))
+    results <- rbind(results, data.frame(Method = name, Dataset = "x2 (Original)", Variance = var_x2))
+  results <- rbind(results, data.frame(Method = name, Dataset = "x2 (Shifted)", Variance = var_x2_shifted))
+}
+
+print(results)
+
+# Boxplot and microbenchmark
+
+benchmark_x1 <- microbenchmark(
+  precise = Algo1(x1),
+  excel = Algo2(x1),
+  shift = Algo3(x1, c = 0),
+  online = Algo4(x1),
+  times = 100
+)
+
+benchmark_x2 <- microbenchmark(
+  precise = Algo1(x2),
+  excel = Algo2(x2),
+  shift = Algo3(x2, c = 0),
+  online = Algo4(x2),
+  times = 100
+)
+
+benchmark_shifted_x1 <- microbenchmark(
+  precise = Algo1(x1_shifted),
+  excel = Algo2(x1_shifted),
+  shift = Algo3(x1_shifted, c = shift_value_x1),
+  online = Algo4(x1_shifted),
+  times = 100
+)
+
+benchmark_shifted_x2 <- microbenchmark(
+  precise = Algo1(x2_shifted),
+  excel = Algo2(x2_shifted),
+  shift = Algo3(x2_shifted, c = shift_value_x2),
+  online = Algo4(x2_shifted),
+  times = 100
+)
+
+
+ggplot(benchmark_shifted_x1, aes(x = expr, y = time)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(title = "log(time) for x1 (Shifted)", x = "Algorithm", y = "log(time)")
+
+ggplot(benchmark_shifted_x2, aes(x = expr, y = time)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(title = "log(time) for x2 (Shifted)", x = "Algorithm", y = "log(time)")
+
+
+```
+
+Observation: The variance of the original and shifted datasets remains the same for most algorithms. The 'Excel Algorithm' has a larger variance for shifted datasets when compared to their original variance. 
+
+Why choose mean as a shift value?
+From this result, we see that using mean as a shift value, for all algorithms except 'Excel', results in consistent and stable variance calculations. This is because when using mean as a shift value, one can minimize the condition number, reducing rounding errors and numerical stability. The 'Excel algorithm' appears to have a precision loss, meaning that there are limitations in handling floating-point precision.
+
+
+# Condition Number
+
+Task 4: Compare condition numbers for x1, x2, and a third dataset where requirement is not fulfilled.
+
+The subsection below has the following code:            
+            - Condition number function           
+            - Printing a table of the result            
+
+```{r}
+
+library(dplyr)
+
+# Condition number-> referring class notes
+
+condition_number <- function(x) {
+  n <- length(x)
+  mean_x <- mean(x)
+  sum_squares <- sum((x - mean_x)^2)
+  
+  if (sum_squares ==0){
+    return(NA)
+  }
+  
+  con_no <- sqrt(1+(mean_x^2 * n) / sum_squares)
+  return(con_no)
+}
+
+# List containing dataset the required conditions
+# Third dataset has a small standard deviation and a high mean to create datapoints with an extremely high condition number
+
+df <- list(x1, x2, rnorm(100, mean = 1000000, sd = 0.0001))
+
+# Matrix to store the final result
+
+comparison_result <- data.frame(matrix(ncol = 5, nrow = 0))
+colnames(comparison_result) <- c("Data", "Algorithm", "Variance", "Condition Number", "R_Variance")
+
+algorithms2 <- list(c("Precise", Algo1),
+                    c("Excel", Algo2),
+                    c("Shift", Algo3),
+                    c("Online", Algo4))
+
+n1 <- length(df)
+
+
+
+for (i in 1:n1){
+  dataset <- df[[i]]
+  
+  for (algo in algorithms2){
+    algo_name <- algo[[1]]
+    algo_func <- algo[[2]]
+    
+    var_calc <- algo_func(dataset)
+    con_no <- condition_number(dataset)
+    r_var <- var(dataset)
+    
+    
+    comparison_result <- rbind(comparison_result, data.frame("Data" = i, "Algorithm" = algo_name, "Variance" = var_calc, "Condition Number" = con_no, "R_Variance" = r_var))
+    
+  }
+}
+
+comparison_result$Data[comparison_result$Data == 1] <- "mean = 0"
+comparison_result$Data[comparison_result$Data == 2] <- "mean = 1000000"
+comparison_result$Data[comparison_result$Data == 3] <- "mean = 1000000, sd = 0.0001"
+
+# Column to store errors
+
+error <- abs(comparison_result$Variance - comparison_result$R_Variance)
+
+comparison_result$Error <- error
+
+comparison_result <- comparison_result %>%
+  mutate(across(where(is.numeric), ~ round(., 3)))
+
+
+
+print(comparison_result)
+
+
+```
+
+Observation: The result shows that using mean as a shift value minimizes the error for most algorithms, except the 'Excel'. In 'Excel' Algorithm, the higher the mean, the higher the errors get.
